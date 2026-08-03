@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WhatsApp Web Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: #0b141a; color: #e9edef; height: 100vh; display: flex; flex-direction: column; }
+    
+    header { background-color: #202c33; padding: 14px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #2a3942; position: sticky; top: 0; z-index: 10; }
+    header h1 { font-size: 1.1rem; color: #e9edef; font-weight: 600; }
+    
+    #chat-container { flex: 1; overflow-y: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 10px; background-color: #0b141a; background-image: radial-gradient(#202c33 1px, transparent 0); background-size: 16px 16px; }
+    
+    .msg-card { max-width: 85%; padding: 8px 12px; border-radius: 8px; font-size: 0.95rem; line-height: 1.45; word-wrap: break-word; position: relative; box-shadow: 0 1px 0.5px rgba(11,20,26,.13); }
+    .received { background-color: #202c33; align-self: flex-start; border-top-left-radius: 0; }
+    .sent { background-color: #005c4b; align-self: flex-end; border-top-right-radius: 0; }
+    
+    .msg-author { font-size: 0.75rem; color: #53bdeb; font-weight: 600; margin-bottom: 4px; display: block; }
+    .msg-text { margin-bottom: 4px; color: #e9edef; white-space: pre-wrap; word-break: break-word; }
+    .msg-time { font-size: 0.65rem; color: #8696a0; text-align: right; display: block; margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>💬 Mensagens WhatsApp</h1>
+  </header>
+
+  <div id="chat-container">
+    <div style="text-align: center; color: #8696a0; font-size: 0.85rem; margin-top: 20px;" id="loading">A carregar mensagens...</div>
+  </div>
+
+  <script>
+    // ⚙️ CONFIGURAÇÃO DO SUPABASE (Substitui com os teus dados)
+    const SUPABASE_URL = 'https://pkhkzphyxlgzxqxholla.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_flzVm5waPaNUdCi3pjXysQ_DXm-Fn_v';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const chatContainer = document.getElementById('chat-container');
+
+    function renderMessage(msg) {
+      const loading = document.getElementById('loading');
+      if (loading) loading.remove();
+
+      const msgDiv = document.createElement('div');
+      const isSent = msg.direction === 'sent';
+      msgDiv.className = `msg-card ${isSent ? 'sent' : 'received'}`;
+
+      const dateObj = msg.timestamp ? new Date(msg.timestamp) : new Date();
+      const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      msgDiv.innerHTML = `
+        ${!isSent ? `<span class="msg-author">${msg.name || msg.wa_id}</span>` : ''}
+        <div class="msg-text">${msg.text || ''}</div>
+        <span class="msg-time">${formattedTime}</span>
+      `;
+
+      chatContainer.appendChild(msgDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    async function loadMessages() {
+      const { data, error } = await supabase
+        .from('se_mensagens')
+        .select('*')
+        .order('timestamp', { ascending: true });
+
+      if (error) {
+        console.error('Erro ao carregar mensagens:', error);
+        chatContainer.innerHTML = '<div style="text-align: center; color: #f15c6d;">Erro ao carregar mensagens.</div>';
+        return;
+      }
+
+      chatContainer.innerHTML = '';
+      if (data.length === 0) {
+        chatContainer.innerHTML = '<div style="text-align: center; color: #8696a0; font-size: 0.85rem; margin-top: 20px;">Nenhuma mensagem registada ainda.</div>';
+      } else {
+        data.forEach(renderMessage);
+      }
+    }
+
+    function subscribeRealtime() {
+      supabase
+        .channel('public:se_mensagens')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'se_mensagens' }, payload => {
+          renderMessage(payload.new);
+        })
+        .subscribe();
+    }
+
+    loadMessages();
+    subscribeRealtime();
+  </script>
+</body>
+</html>
