@@ -7,63 +7,216 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    body { background-color: #0b141a; color: #e9edef; height: 100vh; display: flex; flex-direction: column; }
+    body { background-color: #111b21; color: #e9edef; height: 100vh; display: flex; overflow: hidden; }
+
+    /* Layout Geral (2 Colunas) */
+    #app-container { display: flex; width: 100vw; height: 100vh; }
+
+    /* Barra Lateral - Lista de Conversas */
+    #sidebar { width: 35%; max-width: 400px; min-width: 280px; background-color: #111b21; border-right: 1px solid #222d34; display: flex; flex-direction: column; }
+    .sidebar-header { background-color: #202c33; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #222d34; }
+    .sidebar-header h2 { font-size: 1.1rem; color: #e9edef; font-weight: 600; }
     
-    header { background-color: #202c33; padding: 14px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #2a3942; position: sticky; top: 0; z-index: 10; }
-    header h1 { font-size: 1.1rem; color: #e9edef; font-weight: 600; }
+    #chats-list { flex: 1; overflow-y: auto; }
+    .chat-item { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #1f2c33; transition: background 0.2s; }
+    .chat-item:hover, .chat-item.active { background-color: #2a3942; }
     
-    #chat-container { flex: 1; overflow-y: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 10px; background-color: #0b141a; background-image: radial-gradient(#202c33 1px, transparent 0); background-size: 16px 16px; }
+    .avatar { width: 45px; height: 45px; border-radius: 50%; background-color: #6b7c85; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1rem; flex-shrink: 0; margin-right: 12px; }
+    .chat-info { flex: 1; overflow: hidden; }
+    .chat-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .chat-name { font-size: 0.95rem; font-weight: 600; color: #e9edef; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-time { font-size: 0.75rem; color: #8696a0; }
+    .chat-last-msg { font-size: 0.85rem; color: #8696a0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Painel Principal - Área de Chat */
+    #main-chat { flex: 1; display: flex; flex-direction: column; background-color: #0b141a; }
     
-    .msg-card { max-width: 85%; padding: 8px 12px; border-radius: 8px; font-size: 0.95rem; line-height: 1.45; word-wrap: break-word; position: relative; box-shadow: 0 1px 0.5px rgba(11,20,26,.13); }
+    .chat-header { background-color: #202c33; padding: 10px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #222d34; height: 60px; }
+    .chat-header .chat-name { font-size: 1rem; }
+    
+    #messages-container { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; background-image: radial-gradient(#202c33 1px, transparent 0); background-size: 16px 16px; }
+    
+    /* Balões de Mensagem */
+    .msg-card { max-width: 65%; padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; line-height: 1.4; word-wrap: break-word; position: relative; box-shadow: 0 1px 0.5px rgba(11,20,26,.13); }
     .received { background-color: #202c33; align-self: flex-start; border-top-left-radius: 0; }
     .sent { background-color: #005c4b; align-self: flex-end; border-top-right-radius: 0; }
     
-    .msg-author { font-size: 0.75rem; color: #53bdeb; font-weight: 600; margin-bottom: 4px; display: block; }
-    .msg-text { margin-bottom: 4px; color: #e9edef; white-space: pre-wrap; word-break: break-word; }
-    .msg-time { font-size: 0.65rem; color: #8696a0; text-align: right; display: block; margin-top: 2px; }
+    .msg-text { color: #e9edef; white-space: pre-wrap; word-break: break-word; }
+    .msg-time { font-size: 0.65rem; color: #8696a0; text-align: right; display: block; margin-top: 4px; }
+
+    .placeholder-chat { flex: 1; display: flex; align-items: center; justify-content: center; color: #8696a0; font-size: 0.9rem; background-color: #222e35; border-bottom: 6px solid #00a884; text-align: center; padding: 20px; }
+
+    /* Ajustes Mobile */
+    @media (max-width: 768px) {
+      #sidebar { width: 100%; max-width: none; }
+      #main-chat { display: none; width: 100%; }
+      #app-container.mobile-chat-active #sidebar { display: none; }
+      #app-container.mobile-chat-active #main-chat { display: flex; }
+      .back-btn { display: block; color: #00a884; font-size: 1.5rem; cursor: pointer; margin-right: 8px; }
+    }
+    @media (min-width: 769px) {
+      .back-btn { display: none; }
+    }
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>💬 Mensagens WhatsApp</h1>
-  </header>
+  <div id="app-container">
+    <!-- Lista de Conversas (Esquerda) -->
+    <div id="sidebar">
+      <div class="sidebar-header">
+        <h2>💬 Conversas</h2>
+      </div>
+      <div id="chats-list">
+        <div style="text-align: center; color: #8696a0; padding: 20px; font-size: 0.85rem;" id="sidebar-loading">A carregar conversas...</div>
+      </div>
+    </div>
 
-  <div id="chat-container">
-    <div style="text-align: center; color: #8696a0; font-size: 0.85rem; margin-top: 20px;" id="loading">A carregar mensagens...</div>
+    <!-- Janela do Chat (Direita) -->
+    <div id="main-chat">
+      <div class="placeholder-chat" id="placeholder-chat">
+        <div>
+          <h3>WhatsApp Web Viewer</h3>
+          <p style="margin-top: 8px;">Seleciona uma conversa à esquerda para ver as mensagens.</p>
+        </div>
+      </div>
+
+      <div id="active-chat-wrapper" style="display: none; flex-direction: column; height: 100%;">
+        <div class="chat-header">
+          <span class="back-btn" onclick="closeMobileChat()">←</span>
+          <div class="avatar" id="header-avatar">?</div>
+          <div>
+            <div class="chat-name" id="header-name">Contacto</div>
+            <div style="font-size: 0.75rem; color: #8696a0;" id="header-id"></div>
+          </div>
+        </div>
+
+        <div id="messages-container"></div>
+      </div>
+    </div>
   </div>
 
   <script>
-    // ⚙️ CONFIGURAÇÃO DO SUPABASE
     const SUPABASE_URL = 'https://pkhkzphyxlgzxqxholla.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_flzVm5waPaNUdCi3pjXysQ_DXm-Fn_v';
     
-    // Mudança de nome para 'supabaseClient' para evitar conflito com a biblioteca global
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    const chatContainer = document.getElementById('chat-container');
 
-    function renderMessage(msg) {
-      const loading = document.getElementById('loading');
-      if (loading) loading.remove();
+    let allMessages = [];
+    let activeWaId = null;
 
-      const msgDiv = document.createElement('div');
-      const isSent = msg.direction === 'sent';
-      msgDiv.className = `msg-card ${isSent ? 'sent' : 'received'}`;
-
-      const dateObj = msg.timestamp ? new Date(msg.timestamp) : new Date();
-      const formattedTime = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      msgDiv.innerHTML = `
-        ${!isSent ? `<span class="msg-author">${msg.name || msg.wa_id}</span>` : ''}
-        <div class="msg-text">${msg.text || ''}</div>
-        <span class="msg-time">${formattedTime}</span>
-      `;
-
-      chatContainer.appendChild(msgDiv);
-      chatContainer.scrollTop = chatContainer.scrollHeight;
+    // Formatar Hora
+    function formatTime(timestamp) {
+      if (!timestamp) return '';
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    async function loadMessages() {
+    // Processar conversas únicas
+    function getGroupedChats() {
+      const chatsMap = {};
+
+      allMessages.forEach(msg => {
+        const id = msg.wa_id || 'Desconhecido';
+        if (!chatsMap[id]) {
+          chatsMap[id] = {
+            wa_id: id,
+            name: msg.name || id,
+            lastMessage: msg.text || '',
+            timestamp: msg.timestamp,
+            messages: []
+          };
+        }
+        chatsMap[id].messages.push(msg);
+        
+        // Atualiza última mensagem se for mais recente
+        if (new Date(msg.timestamp) >= new Date(chatsMap[id].timestamp)) {
+          chatsMap[id].lastMessage = msg.text || '';
+          chatsMap[id].timestamp = msg.timestamp;
+          if (msg.name) chatsMap[id].name = msg.name;
+        }
+      });
+
+      return Object.values(chatsMap).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    }
+
+    // Renderizar Lista Lateral de Chats
+    function renderChatsList() {
+      const chatsListDiv = document.getElementById('chats-list');
+      const groupedChats = getGroupedChats();
+
+      if (groupedChats.length === 0) {
+        chatsListDiv.innerHTML = '<div style="text-align: center; color: #8696a0; padding: 20px; font-size: 0.85rem;">Nenhuma conversa registada ainda.</div>';
+        return;
+      }
+
+      chatsListDiv.innerHTML = '';
+      groupedChats.forEach(chat => {
+        const item = document.createElement('div');
+        item.className = `chat-item ${chat.wa_id === activeWaId ? 'active' : ''}`;
+        item.onclick = () => selectChat(chat.wa_id);
+
+        const initial = (chat.name || chat.wa_id).charAt(0).toUpperCase();
+
+        item.innerHTML = `
+          <div class="avatar">${initial}</div>
+          <div class="chat-info">
+            <div class="chat-top">
+              <span class="chat-name">${chat.name}</span>
+              <span class="chat-time">${formatTime(chat.timestamp)}</span>
+            </div>
+            <div class="chat-last-msg">${chat.lastMessage}</div>
+          </div>
+        `;
+        chatsListDiv.appendChild(item);
+      });
+    }
+
+    // Selecionar e Abrir um Chat
+    function selectChat(waId) {
+      activeWaId = waId;
+      document.getElementById('app-container').classList.add('mobile-chat-active');
+      document.getElementById('placeholder-chat').style.display = 'none';
+      document.getElementById('active-chat-wrapper').style.display = 'flex';
+
+      const grouped = getGroupedChats();
+      const currentChat = grouped.find(c => c.wa_id === waId);
+
+      if (!currentChat) return;
+
+      // Atualiza Cabeçalho
+      document.getElementById('header-name').textContent = currentChat.name;
+      document.getElementById('header-id').textContent = currentChat.wa_id;
+      document.getElementById('header-avatar').textContent = currentChat.name.charAt(0).toUpperCase();
+
+      // Renderizar Mensagens
+      const messagesContainer = document.getElementById('messages-container');
+      messagesContainer.innerHTML = '';
+
+      currentChat.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      currentChat.messages.forEach(msg => {
+        const msgDiv = document.createElement('div');
+        const isSent = msg.direction === 'sent';
+        msgDiv.className = `msg-card ${isSent ? 'sent' : 'received'}`;
+
+        msgDiv.innerHTML = `
+          <div class="msg-text">${msg.text || ''}</div>
+          <span class="msg-time">${formatTime(msg.timestamp)}</span>
+        `;
+        messagesContainer.appendChild(msgDiv);
+      });
+
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      renderChatsList();
+    }
+
+    function closeMobileChat() {
+      document.getElementById('app-container').classList.remove('mobile-chat-active');
+    }
+
+    // Carregar histórico do Supabase
+    async function loadAllMessages() {
       const { data, error } = await supabaseClient
         .from('se_mensagens')
         .select('*')
@@ -71,28 +224,31 @@
 
       if (error) {
         console.error('Erro ao carregar mensagens:', error);
-        chatContainer.innerHTML = '<div style="text-align: center; color: #f15c6d;">Erro ao carregar mensagens. Verifique a consola do navegador.</div>';
+        document.getElementById('chats-list').innerHTML = '<div style="text-align: center; color: #f15c6d; padding: 20px;">Erro ao carregar dados.</div>';
         return;
       }
 
-      chatContainer.innerHTML = '';
-      if (!data || data.length === 0) {
-        chatContainer.innerHTML = '<div style="text-align: center; color: #8696a0; font-size: 0.85rem; margin-top: 20px;">Nenhuma mensagem registada ainda.</div>';
-      } else {
-        data.forEach(renderMessage);
-      }
+      allMessages = data || [];
+      renderChatsList();
     }
 
+    // Escutar novas mensagens em tempo real
     function subscribeRealtime() {
       supabaseClient
         .channel('public:se_mensagens')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'se_mensagens' }, payload => {
-          renderMessage(payload.new);
+          allMessages.push(payload.new);
+          renderChatsList();
+          
+          // Se a nova mensagem pertencer ao chat aberto atualmente, atualiza a janela
+          if (payload.new.wa_id === activeWaId) {
+            selectChat(activeWaId);
+          }
         })
         .subscribe();
     }
 
-    loadMessages();
+    loadAllMessages();
     subscribeRealtime();
   </script>
 </body>
