@@ -34,11 +34,12 @@
   </div>
 
   <script>
-    // ⚙️ CONFIGURAÇÃO DO SUPABASE (Substitui com os teus dados)
+    // ⚙️ CONFIGURAÇÃO DO SUPABASE
     const SUPABASE_URL = 'https://pkhkzphyxlgzxqxholla.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_flzVm5waPaNUdCi3pjXysQ_DXm-Fn_v';
     
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Mudança de nome para 'supabaseClient' para evitar conflito com a biblioteca global
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const chatContainer = document.getElementById('chat-container');
 
     function renderMessage(msg) {
@@ -63,19 +64,19 @@
     }
 
     async function loadMessages() {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from('se_mensagens')
         .select('*')
         .order('timestamp', { ascending: true });
 
       if (error) {
         console.error('Erro ao carregar mensagens:', error);
-        chatContainer.innerHTML = '<div style="text-align: center; color: #f15c6d;">Erro ao carregar mensagens.</div>';
+        chatContainer.innerHTML = '<div style="text-align: center; color: #f15c6d;">Erro ao carregar mensagens. Verifique a consola do navegador.</div>';
         return;
       }
 
       chatContainer.innerHTML = '';
-      if (data.length === 0) {
+      if (!data || data.length === 0) {
         chatContainer.innerHTML = '<div style="text-align: center; color: #8696a0; font-size: 0.85rem; margin-top: 20px;">Nenhuma mensagem registada ainda.</div>';
       } else {
         data.forEach(renderMessage);
@@ -83,7 +84,7 @@
     }
 
     function subscribeRealtime() {
-      supabase
+      supabaseClient
         .channel('public:se_mensagens')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'se_mensagens' }, payload => {
           renderMessage(payload.new);
